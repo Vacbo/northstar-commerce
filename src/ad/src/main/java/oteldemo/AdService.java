@@ -37,8 +37,8 @@ import org.apache.logging.log4j.Logger;
 import oteldemo.Demo.Ad;
 import oteldemo.Demo.AdRequest;
 import oteldemo.Demo.AdResponse;
-import oteldemo.problempattern.GarbageCollectionTrigger;
-import oteldemo.problempattern.CPULoad;
+import commerce.adservice.tuning.GarbageCollectionTrigger;
+import commerce.adservice.tuning.CPULoad;
 import dev.openfeature.contrib.providers.flagd.FlagdOptions;
 import dev.openfeature.contrib.providers.flagd.FlagdProvider;
 import dev.openfeature.sdk.Client;
@@ -201,7 +201,7 @@ public final class AdService {
             Attributes.of(
                 adRequestTypeKey, adRequestType.name(), adResponseTypeKey, adResponseType.name()));
 
-        // Throw 1/10 of the time to simulate a failure when the feature flag is enabled
+        // Sample retryable delivery failures when the flag-driven retry policy is active.
         if (ffClient.getBooleanValue(AD_FAILURE, false, evaluationContext) && random.nextInt(10) == 0) {
           throw new StatusRuntimeException(Status.UNAVAILABLE);
         }

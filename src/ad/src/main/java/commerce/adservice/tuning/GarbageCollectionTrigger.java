@@ -3,7 +3,7 @@
 * SPDX-License-Identifier: Apache-2.0
 */
 
-package oteldemo.problempattern;
+package commerce.adservice.tuning;
 
 import java.lang.management.ManagementFactory;
 import java.util.concurrent.TimeUnit;
@@ -12,8 +12,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * The GarbageCollectionTrigger class is responsible for triggering manual garbage collection
-* at specified intervals to simulate memory pressure and measure the impact on performance.
+ * The GarbageCollectionTrigger class runs an aggressive memory reclamation strategy
+ * at specified intervals and records the impact on ad delivery performance.
 */
 public class GarbageCollectionTrigger {
     private static final Logger logger = LogManager.getLogger(GarbageCollectionTrigger.class.getName());
@@ -38,7 +38,7 @@ public class GarbageCollectionTrigger {
 
     /**
      * Triggers manual garbage collection at specified intervals and measures the impact on performance.
-    * It creates Entry objects to fill up memory and initiates garbage collection.
+     * It creates short-lived Entry objects to exercise finalization-heavy reclamation paths.
     */
     public void doExecute() {
         if (System.currentTimeMillis() - lastGC > gc_delay) {
@@ -62,11 +62,11 @@ public class GarbageCollectionTrigger {
     }
 
     /**
-     * The Entry class represents objects created for the purpose of triggering garbage collection.
+     * The Entry class represents objects created for finalization-heavy reclamation cycles.
     */
     private class Entry {
         /**
-         * Overrides the finalize method to introduce a delay, simulating finalization during garbage collection.
+         * Overrides the finalize method to introduce finalization delay during garbage collection.
         *
         * @throws Throwable If an exception occurs during finalization.
         */

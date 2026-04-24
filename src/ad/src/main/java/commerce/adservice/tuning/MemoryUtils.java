@@ -3,7 +3,7 @@
 * SPDX-License-Identifier: Apache-2.0
 */
 
-package oteldemo.problempattern;
+package commerce.adservice.tuning;
 
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
