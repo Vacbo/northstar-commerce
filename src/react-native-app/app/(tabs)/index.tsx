@@ -9,7 +9,6 @@ import ApiGateway from "@/gateways/Api.gateway";
 
 export default function Index() {
   const { data: productList = [] } = useQuery({
-    // TODO simplify react native demo for now by hard-coding the selected currency
     queryKey: ["products", "USD"],
     queryFn: () => ApiGateway.listProducts("USD"),
   });
@@ -21,8 +20,7 @@ export default function Index() {
           <ProductList productList={productList} />
         ) : (
           <ThemedText>
-            No products found, make sure the backend services for the
-            OpenTelemetry demo are running
+            No products found. Make sure the Northstar Commerce backend services are running.
           </ThemedText>
         )}
       </ScrollView>
