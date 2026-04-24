@@ -11,6 +11,8 @@ networks:
   default:
     name: northstar-commerce
     driver: bridge
+  mas-ops-observability:
+    external: true
 
 services:
   # ******************
@@ -39,7 +41,7 @@ services:
       - DB_CONNECTION_STRING=Host=${POSTGRES_HOST};Username=astronomy_user;Password=${POSTGRES_ASTRONOMY_PASSWORD};Database=astronomy_db
       - OTEL_DOTNET_AUTO_TRACES_ENTITYFRAMEWORKCORE_INSTRUMENTATION_ENABLED=false
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
       kafka:
         condition: service_healthy
@@ -74,7 +76,7 @@ services:
       - OTEL_SERVICE_NAME=ad
 
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
       flagd:
         condition: service_started
@@ -109,7 +111,7 @@ services:
     depends_on:
       valkey-cart:
         condition: service_started
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
       flagd:
         condition: service_started
@@ -160,7 +162,7 @@ services:
         condition: service_started
       shipping:
         condition: service_started
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
       kafka:
         condition: service_healthy
@@ -195,7 +197,7 @@ services:
       - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},service.criticality=high
       - OTEL_SERVICE_NAME=currency
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
     logging: *logging
 
@@ -225,7 +227,7 @@ services:
       - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},service.criticality=medium
       - OTEL_SERVICE_NAME=email
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
     logging: *logging
 
@@ -256,7 +258,7 @@ services:
       - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},service.criticality=low
       - OTEL_SERVICE_NAME=fraud-detection
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
       kafka:
         condition: service_healthy
@@ -316,7 +318,7 @@ services:
         condition: service_started
       shipping:
         condition: service_started
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
       image-provider:
         condition: service_started
@@ -371,10 +373,6 @@ services:
         condition: service_started
       load-generator:
         condition: service_started
-      jaeger:
-        condition: service_started
-      grafana:
-        condition: service_started
       flagd-ui:
         condition: service_started
       telemetry-docs:
@@ -404,7 +402,7 @@ services:
       - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},service.criticality=low
       - OTEL_SERVICE_NAME=image-provider
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
     logging: *logging
 
@@ -426,10 +424,11 @@ services:
       - "${LOCUST_WEB_PORT}"
     environment:
       - LOCUST_WEB_PORT
-      - LOCUST_USERS
+      - LOCUST_USERS=5
+      - LOCUST_SPAWN_RATE=1
       - LOCUST_HOST
-      - LOCUST_HEADLESS
-      - LOCUST_AUTOSTART
+      - LOCUST_HEADLESS=true
+      - LOCUST_AUTOSTART=true
       - LOCUST_BROWSER_TRAFFIC_ENABLED=true
       - OTEL_EXPORTER_OTLP_ENDPOINT
       - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
@@ -473,7 +472,7 @@ services:
       - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},service.criticality=critical
       - OTEL_SERVICE_NAME=payment
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
       flagd:
         condition: service_started
@@ -508,7 +507,7 @@ services:
       - OTEL_SEMCONV_STABILITY_OPT_IN=database
       - DB_CONNECTION_STRING=postgres://astronomy_user:${POSTGRES_ASTRONOMY_PASSWORD}@${POSTGRES_HOST}/astronomy_db?sslmode=disable
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
       flagd:
         condition: service_started
@@ -544,7 +543,7 @@ services:
       - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},service.criticality=low
       - OTEL_SERVICE_NAME=quote
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
     logging: *logging
 
@@ -578,7 +577,7 @@ services:
     depends_on:
       product-catalog:
         condition: service_started
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
       flagd:
         condition: service_started
@@ -609,7 +608,7 @@ services:
       - OTEL_SERVICE_NAME=shipping
       - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
     logging: *logging
 
@@ -669,7 +668,7 @@ services:
     ports:
       - "${FLAGD_UI_PORT}"
     depends_on:
-      otel-collector:
+      northstar-otel-collector:
         condition: service_started
       flagd:
         condition: service_started
@@ -746,53 +745,10 @@ services:
   # ********************
   # Telemetry Components
   # ********************
-  # Jaeger
-  jaeger:
-    image: ${JAEGERTRACING_IMAGE}
-    container_name: jaeger
-    command:
-      - "--config=file:/etc/jaeger/config.yml"
-    deploy:
-      resources:
-        limits:
-          memory: 1200M
-    restart: unless-stopped
-    ports:
-      - "${JAEGER_UI_PORT}"
-      - "${JAEGER_GRPC_PORT}"
-    environment:
-      - JAEGER_HOST
-      - JAEGER_GRPC_PORT
-      - PROMETHEUS_ADDR
-      - OTEL_COLLECTOR_HOST
-      - OTEL_COLLECTOR_PORT_HTTP
-      - MEMORY_MAX_TRACES=25000
-    volumes:
-      - ./src/jaeger/config.yml:/etc/jaeger/config.yml
-    logging: *logging
-
-  # Grafana
-  grafana:
-    image: ${GRAFANA_IMAGE}
-    container_name: grafana
-    deploy:
-      resources:
-        limits:
-          memory: 175M
-    restart: unless-stopped
-    environment:
-      - "GF_INSTALL_PLUGINS=grafana-opensearch-datasource"
-    volumes:
-      - ./src/grafana/grafana.ini:/etc/grafana/grafana.ini
-      - ./src/grafana/provisioning/:/etc/grafana/provisioning/
-    ports:
-      - "${GRAFANA_PORT}"
-    logging: *logging
-
   # OpenTelemetry Collector
-  otel-collector:
+  northstar-otel-collector:
     image: ${COLLECTOR_CONTRIB_IMAGE}
-    container_name: otel-collector
+    container_name: northstar-otel-collector
     deploy:
       resources:
         limits:
@@ -808,11 +764,11 @@ services:
     ports:
       - "${OTEL_COLLECTOR_PORT_GRPC}"
       - "${OTEL_COLLECTOR_PORT_HTTP}"
-    depends_on:
-      jaeger:
-        condition: service_started
-      opensearch:
-        condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - otel-collector
+      mas-ops-observability:
     logging: *logging
     environment:
       - FRONTEND_PROXY_ADDR
@@ -828,31 +784,6 @@ services:
       - POSTGRES_PASSWORD
       - POSTGRES_MONITORING_PASSWORD
       - GOMEMLIMIT=160MiB
-
-  # Prometheus
-  prometheus:
-    image: ${PROMETHEUS_IMAGE}
-    container_name: prometheus
-    command:
-      - --web.console.templates=/etc/prometheus/consoles
-      - --web.console.libraries=/etc/prometheus/console_libraries
-      - --storage.tsdb.retention.time=7d
-      - --config.file=/etc/prometheus/prometheus-config.yaml
-      - --storage.tsdb.path=/prometheus
-      - --web.enable-lifecycle
-      - --web.route-prefix=/
-      - --web.enable-otlp-receiver
-      - --enable-feature=exemplar-storage
-    volumes:
-      - ./src/prometheus/prometheus-config.yaml:/etc/prometheus/prometheus-config.yaml
-    deploy:
-      resources:
-        limits:
-          memory: 200M
-    restart: unless-stopped
-    ports:
-      - "${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"
-    logging: *logging
 
   # Telemetry Documentation
   telemetry-docs:
@@ -875,46 +806,4 @@ services:
       - OTEL_COLLECTOR_HOST
       - OTEL_COLLECTOR_PORT_GRPC
       - OTEL_SERVICE_NAME=telemetry-docs
-    logging: *logging
-
-  # OpenSearch
-  opensearch:
-    image: ${IMAGE_NAME}:${DEMO_VERSION}-opensearch
-    container_name: opensearch
-    build:
-      context: ./
-      dockerfile: ${OPENSEARCH_DOCKERFILE}
-      args:
-        - OPENSEARCH_IMAGE
-      cache_from:
-        - ${IMAGE_NAME}:${IMAGE_VERSION}-opensearch
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-    restart: unless-stopped
-    environment:
-      - cluster.name=demo-cluster
-      - node.name=demo-node
-      - bootstrap.memory_lock=true
-      - discovery.type=single-node
-      - OPENSEARCH_JAVA_OPTS=-Xms400m -Xmx400m
-      - DISABLE_INSTALL_DEMO_CONFIG=true
-      - DISABLE_SECURITY_PLUGIN=true
-
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 65536
-        hard: 65536
-    ports:
-      - "9200"
-    healthcheck:
-      test: curl -s http://localhost:9200/_cluster/health | grep -E '"status":"(green|yellow)"'
-      start_period: 10s
-      interval: 5s
-      timeout: 10s
-      retries: 10
     logging: *logging
