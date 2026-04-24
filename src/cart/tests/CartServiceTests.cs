@@ -25,7 +25,7 @@ public class CartServiceTests
         });
     }
 
-    [Fact(Skip = "See https://github.com/open-telemetry/opentelemetry-demo/pull/746#discussion_r1107931240")]
+    [Fact(Skip = "See https://github.com/vacbo/northstar-commerce/pull/746#discussion_r1107931240")]
     public async Task GetItem_NoAddItemBefore_EmptyCartReturned()
     {
         // Setup test server and client
@@ -54,7 +54,7 @@ public class CartServiceTests
         Assert.Equal(new Cart(), cart);
     }
 
-    [Fact(Skip = "See https://github.com/open-telemetry/opentelemetry-demo/pull/746#discussion_r1107931240")]
+    [Fact(Skip = "See https://github.com/vacbo/northstar-commerce/pull/746#discussion_r1107931240")]
     public async Task AddItem_ItemExists_Updated()
     {
         // Setup test server and client
@@ -100,7 +100,7 @@ public class CartServiceTests
         await client.EmptyCartAsync(new EmptyCartRequest { UserId = userId });
     }
 
-    [Fact(Skip = "See https://github.com/open-telemetry/opentelemetry-demo/pull/746#discussion_r1107931240")]
+    [Fact(Skip = "See https://github.com/vacbo/northstar-commerce/pull/746#discussion_r1107931240")]
     public async Task AddItem_New_Inserted()
     {
         // Setup test server and client

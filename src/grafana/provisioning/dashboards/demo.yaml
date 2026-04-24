@@ -4,7 +4,7 @@
 
 apiVersion: 1
 providers:
-  - name: 'OpenTelemetry Demo'
+  - name: 'Northstar Commerce'
     orgId: 1
     folder: 'Demo'
     folderUid: 'demo'

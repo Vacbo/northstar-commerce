@@ -1,7 +1,7 @@
-# OpenTelemetry Demo Telemetry Schema
+# Northstar Commerce Telemetry Schema
 
 This directory contains the semantic conventions and telemetry schema for the
-OpenTelemetry Demo application, defining all custom attributes and metrics used
+Northstar Commerce application, defining all custom attributes and metrics used
 across the demo services.
 
 ## Structure
@@ -17,5 +17,5 @@ The schema is organized into three directories:
 ## Purpose
 
 This schema provides a single source of truth for all custom telemetry in the
-OpenTelemetry Demo application, ensuring naming consistency and enabling
+Northstar Commerce application, ensuring naming consistency and enabling
 validation of instrumentation code.

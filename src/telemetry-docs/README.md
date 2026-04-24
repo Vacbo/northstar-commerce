@@ -1,7 +1,7 @@
 # Telemetry Documentation Service
 
 This service generates and hosts comprehensive documentation for the
-OpenTelemetry Demo's telemetry schema using
+Northstar Commerce's telemetry schema using
 [OpenTelemetry Weaver](https://github.com/open-telemetry/weaver),
 [MkDocs](https://www.mkdocs.org/), and
 [nginx with OpenTelemetry instrumentation](https://github.com/nginxinc/nginx-otel).
@@ -9,7 +9,7 @@ OpenTelemetry Demo's telemetry schema using
 ## Overview
 
 The telemetry-docs service provides a web-based documentation interface that
-documents all custom attributes and metrics used across the OpenTelemetry Demo
+documents all custom attributes and metrics used across the Northstar Commerce
 application. The documentation is automatically generated from the YAML schema
 definitions in the `telemetry-schema/` directory and served as a static site
 with full OpenTelemetry tracing.

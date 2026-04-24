@@ -1,7 +1,7 @@
 {
   "name": "payment",
   "description": "Payment Service",
-  "repository": "https://github.com/opentelemetry/opentelemetry-demo",
+  "repository": "https://github.com/vacbo/northstar-commerce",
   "main": "index.js",
   "scripts": {
     "start": "node --require ./opentelemetry.js index.js"

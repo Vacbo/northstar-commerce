@@ -1,4 +1,4 @@
-module github.com/open-telemetry/opentelemetry-demo/src/checkout
+module github.com/vacbo/northstar-commerce/src/checkout
 
 go 1.25.0
 

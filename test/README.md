@@ -1,6 +1,6 @@
 # Service Testing
 
-The OpenTelemetry Demo uses traced-based testing to validate the
+The Northstar Commerce uses traced-based testing to validate the
 functionality of the services and the traces they generate.
 
 The trace-based tests will each service and validate the traces they

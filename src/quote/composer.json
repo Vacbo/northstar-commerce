@@ -1,6 +1,6 @@
 {
     "name": "openteletry-demo/quote",
-    "description": "Quote Service part of OpenTelemetry Demo",
+    "description": "Quote Service part of Northstar Commerce",
     "license": "Apache-2.0",
     "require": {
         "php": ">= 8.3",

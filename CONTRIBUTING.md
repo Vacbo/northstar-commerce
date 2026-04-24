@@ -1,6 +1,6 @@
-# Contributing to OpenTelemetry Demo Webstore
+# Contributing to Northstar Commerce Webstore
 
-Welcome to the OpenTelemetry Demo repository! We appreciate your interest in
+Welcome to the Northstar Commerce repository! We appreciate your interest in
 contributing. Whether you're fixing a bug, improving documentation, or adding a
 new feature, we value your contribution.
 
@@ -36,7 +36,7 @@ through your first contribution.
    channel.
 2. Post in the room with an introduction to yourself, what area you are
    interested in (check issues marked with [help
-   wanted](https://github.com/open-telemetry/opentelemetry-demo/labels/help%20wanted)),
+   wanted](https://github.com/vacbo/northstar-commerce/labels/help%20wanted)),
    and say you are looking for a buddy. We will match you with someone who has
    experience in that area.
 
@@ -59,8 +59,8 @@ Ensure you have the following installed:
 ### Clone the Repository
 
 ```sh
-git clone https://github.com/open-telemetry/opentelemetry-demo.git
-cd opentelemetry-demo/
+git clone https://github.com/vacbo/northstar-commerce.git
+cd northstar-commerce/
 ```
 
 ### Run the Demo
@@ -153,7 +153,7 @@ please review [these instructions](src/react-native-app/README.md).
 
 ### How to Send Pull Requests
 
-Everyone is welcome to contribute code to `opentelemetry-demo` via
+Everyone is welcome to contribute code to `northstar-commerce` via
 GitHub pull requests (PRs).
 
 To create a new PR, fork the project in GitHub and clone the upstream repo:
@@ -164,19 +164,19 @@ To create a new PR, fork the project in GitHub and clone the upstream repo:
 > **Pull requests from protected forks will not be accepted.**
 
 ```sh
-git clone https://github.com/open-telemetry/opentelemetry-demo.git
+git clone https://github.com/vacbo/northstar-commerce.git
 ```
 
 Navigate to the repo root:
 
 ```sh
-cd opentelemetry-demo
+cd northstar-commerce
 ```
 
 Add your fork as an origin:
 
 ```sh
-git remote add fork https://github.com/YOUR_GITHUB_USERNAME/opentelemetry-demo.git
+git remote add fork https://github.com/YOUR_GITHUB_USERNAME/northstar-commerce.git
 ```
 
 Check out a new branch, make modifications and push the branch to your fork:
@@ -192,7 +192,7 @@ $ git commit -m "short description of the change"
 $ git push fork feature
 ```
 
-Open a pull request against the main `opentelemetry-demo` repo.
+Open a pull request against the main `northstar-commerce` repo.
 
 ### How to Receive Comments
 
@@ -291,7 +291,7 @@ Maintainers can create a new release when desired by following these steps.
    in `.env` to the _new_ version number based on the format `x.x.x` and merge
    it.
 2. [Create a new
-   release](https://github.com/open-telemetry/opentelemetry-demo/releases/new),
+   release](https://github.com/vacbo/northstar-commerce/releases/new),
    creating a new tag for the _new_ version number based on main. Automatically
    generate release notes. Prepend a summary of the major changes to the release
    notes.

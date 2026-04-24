@@ -1,24 +1,6 @@
 {
   "$schema": "https://flagd.dev/schema/v0/flags.json",
   "flags": {
-    "llm_summary_variant": {
-      "defaultVariant": "off",
-      "description": "LLM returns an inaccurate product summary for product ID L9ECAV7KIM",
-      "state": "ENABLED",
-      "variants": {
-        "off": false,
-        "on": true
-      }
-    },
-    "llm_provider_throttle_mode": {
-      "defaultVariant": "off",
-      "description": "LLM intermittently returns a rate limit error",
-      "state": "ENABLED",
-      "variants": {
-        "off": false,
-        "on": true
-      }
-    },
     "catalog_fallback_mode": {
       "description": "Fail product catalog service on a specific product",
       "state": "ENABLED",
@@ -132,7 +114,6 @@
         "off": false
       },
       "defaultVariant": "off"
-
     },
     "email_template_expansion_factor": {
       "description": "Memory leak in the email service.",
