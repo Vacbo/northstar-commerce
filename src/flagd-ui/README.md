@@ -7,15 +7,15 @@ This is a [Phoenix](https://www.phoenixframework.org/) project.
 
 ## Running the application
 
-The application can be run with the rest of the demo using the documented
-[docker compose or make commands](https://opentelemetry.io/docs/demo/#running-the-demo).
+The application can be run with the rest of the Northstar Commerce stack using
+the Docker Compose or Make targets from the repository root.
 
 ## Local development
 
 * Run `mix setup` to install and setup dependencies
 * Create a `data` folder: `mkdir data`.
-* Copy [../flagd/demo.flagd.json](../flagd/demo.flagd.json) to `./data/demo.flagd.json`
-  * `cp ../flagd/demo.flagd.json ./data/demo.flagd.json`
+* Copy [../flagd/feature-flags.json](../flagd/feature-flags.json) to `./data/feature-flags.json`
+  * `cp ../flagd/feature-flags.json ./data/feature-flags.json`
 * Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
 
 Now you can visit `localhost:4000` from your browser.
@@ -32,7 +32,7 @@ $ curl localhost:8080/feature/api/read | jq
 
 {
   "flags": {
-    "adFailure": {
+    "ad_delivery_retry_sampling": {
       "defaultVariant": "off",
       "description": "Fail ad service",
       "state": "ENABLED",
@@ -41,7 +41,7 @@ $ curl localhost:8080/feature/api/read | jq
         "on": true
       }
     },
-    "adHighCpu": {
+    "ad_personalization_burst": {
       "defaultVariant": "off",
       "description": "Triggers high cpu load in the ad service",
       "state": "ENABLED",
@@ -50,7 +50,7 @@ $ curl localhost:8080/feature/api/read | jq
         "on": true
       }
     },
-    "adManualGc": {
+    "ad_memory_reclamation": {
       "defaultVariant": "off",
       "description": "Triggers full manual garbage collections in the ad service",
       "state": "ENABLED",
@@ -72,12 +72,12 @@ Bear in mind that _all_ the data will be rewritten by this write operation.
 ```sh
 $ curl --header "Content-Type: application/json" \
   --request POST \
-  --data '{"data": {"$schema":"https://flagd.dev/schema/v0/flags.json","flags":{"adFailure":{"defaultVariant":"on","description":"Fail ad service","state":"ENABLED","variants":{"off":false,"on":true}}...' \
+  --data '{"data": {"$schema":"https://flagd.dev/schema/v0/flags.json","flags":{"ad_delivery_retry_sampling":{"defaultVariant":"on","description":"Fail ad service","state":"ENABLED","variants":{"off":false,"on":true}}...' \
   http://localhost:8080/feature/api/write
 ```
 
-In addition to the `/read` and `/write` endpoint, we also offer these endpoint
-to stay compatible with the old version of Flagd-ui:
+In addition to the `/read` and `/write` endpoint, these file-oriented endpoints
+are available for operational tooling:
 
 * `/read-file` (`GET`)
 * `/write-to-file` (`POST`)

@@ -59,7 +59,6 @@ export default function Cart() {
           city,
           zipCode,
         },
-        // TODO simplify react native demo for now by hard-coding the selected currency
         userCurrency: "USD",
         creditCard: {
           creditCardCvv,

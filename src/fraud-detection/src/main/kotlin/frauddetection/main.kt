@@ -57,8 +57,8 @@ fun main() {
                 .poll(ofMillis(100))
                 .fold(totalCount) { accumulator, record ->
                     val newCount = accumulator + 1
-                    if (getFeatureFlagValue("kafkaQueueProblems") > 0) {
-                        logger.info("FeatureFlag 'kafkaQueueProblems' is enabled, sleeping 1 second")
+                    if (getFeatureFlagValue("order_event_burst_replay") > 0) {
+                        logger.info("FeatureFlag 'order_event_burst_replay' is enabled, sleeping 1 second")
                         Thread.sleep(1000)
                     }
                     val orders = OrderResult.parseFrom(record.value())

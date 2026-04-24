@@ -35,5 +35,5 @@ flagd_ui-*.tar
 npm-debug.log
 /assets/node_modules/
 
-demo.flagd.json
+feature-flags.json
 /data

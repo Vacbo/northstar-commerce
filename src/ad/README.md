@@ -21,7 +21,7 @@ To run the Ad Service:
 ```sh
 export AD_PORT=8080
 export FEATURE_FLAG_GRPC_SERVICE_ADDR=featureflagservice:50053
-./build/install/opentelemetry-demo-ad/bin/Ad
+./build/install/northstar-commerce-ad/bin/Ad
 ```
 
 ### Upgrading Gradle
@@ -34,7 +34,7 @@ If you need to upgrade the version of gradle then run
 
 ## Building Docker
 
-From the root of `opentelemetry-demo`, run:
+From the root of `northstar-commerce`, run:
 
 ```sh
 docker build --file ./src/ad/Dockerfile ./

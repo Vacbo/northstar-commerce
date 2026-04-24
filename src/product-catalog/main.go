@@ -34,7 +34,7 @@ import (
 	otelhooks "github.com/open-feature/go-sdk-contrib/hooks/open-telemetry/pkg"
 	flagd "github.com/open-feature/go-sdk-contrib/providers/flagd/pkg"
 	"github.com/open-feature/go-sdk/openfeature"
-	pb "github.com/opentelemetry/opentelemetry-demo/src/product-catalog/genproto/oteldemo"
+	pb "github.com/vacbo/northstar-commerce/src/product-catalog/genproto/oteldemo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -414,7 +414,7 @@ func (p *productCatalog) checkProductFailure(ctx context.Context, id string) boo
 
 	client := openfeature.NewClient("productCatalog")
 	failureEnabled, _ := client.BooleanValue(
-		ctx, "productCatalogFailure", false, openfeature.EvaluationContext{},
+		ctx, "catalog_fallback_mode", false, openfeature.EvaluationContext{},
 	)
 	return failureEnabled
 }

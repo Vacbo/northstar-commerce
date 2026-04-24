@@ -32,7 +32,7 @@ namespace cart.healthcheck
 
             #pragma warning disable CA2016 // OpenFeature does not support CancellationToken
             // Await the async call instead of blocking
-            bool isSet = await _featureClient.GetBooleanValueAsync("failedReadinessProbe", false); // Replace with actual check
+            bool isSet = await _featureClient.GetBooleanValueAsync("cart_startup_probe_override", false); // Replace with actual check
             #pragma warning restore CA2016
             if (isSet)
             {

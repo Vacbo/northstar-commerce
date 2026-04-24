@@ -17,13 +17,13 @@ defmodule FlagdUiWeb.FeatureControllerTest do
 
     assert %{
              "flags" => %{
-               "adFailure" => %{
+               "ad_delivery_retry_sampling" => %{
                  "defaultVariant" => "off",
                  "description" => "Fail ad service",
                  "state" => "ENABLED",
                  "variants" => %{"off" => false, "on" => true}
                },
-               "adHighCpu" => %{
+               "ad_personalization_burst" => %{
                  "defaultVariant" => "off",
                  "description" => "Triggers high cpu load in the ad service",
                  "state" => "ENABLED",
@@ -38,13 +38,13 @@ defmodule FlagdUiWeb.FeatureControllerTest do
 
     assert %{
              "flags" => %{
-               "adFailure" => %{
+               "ad_delivery_retry_sampling" => %{
                  "defaultVariant" => "off",
                  "description" => "Fail ad service",
                  "state" => "ENABLED",
                  "variants" => %{"off" => false, "on" => true}
                },
-               "adHighCpu" => %{
+               "ad_personalization_burst" => %{
                  "defaultVariant" => "off",
                  "description" => "Triggers high cpu load in the ad service",
                  "state" => "ENABLED",
@@ -57,13 +57,13 @@ defmodule FlagdUiWeb.FeatureControllerTest do
   test "POST /api/write", %{conn: conn} do
     data = %{
       "flags" => %{
-        "adFailure" => %{
+        "ad_delivery_retry_sampling" => %{
           "defaultVariant" => "off",
           "description" => "Fail ad service",
           "state" => "ENABLED",
           "variants" => %{"off" => true, "on" => false}
         },
-        "adHighCpu" => %{
+        "ad_personalization_burst" => %{
           "defaultVariant" => "off",
           "description" => "Triggers high cpu load in the ad service",
           "state" => "ENABLED",
@@ -78,13 +78,13 @@ defmodule FlagdUiWeb.FeatureControllerTest do
 
     assert %{
              "flags" => %{
-               "adFailure" => %{
+               "ad_delivery_retry_sampling" => %{
                  "defaultVariant" => "off",
                  "description" => "Fail ad service",
                  "state" => "ENABLED",
                  "variants" => %{"off" => true, "on" => false}
                },
-               "adHighCpu" => %{
+               "ad_personalization_burst" => %{
                  "defaultVariant" => "off",
                  "description" => "Triggers high cpu load in the ad service",
                  "state" => "ENABLED",
@@ -97,13 +97,13 @@ defmodule FlagdUiWeb.FeatureControllerTest do
   test "POST /api/write-to-file (legacy API)", %{conn: conn} do
     data = %{
       "flags" => %{
-        "adFailure" => %{
+        "ad_delivery_retry_sampling" => %{
           "defaultVariant" => "off",
           "description" => "Fail ad service",
           "state" => "ENABLED",
           "variants" => %{"off" => true, "on" => false}
         },
-        "adHighCpu" => %{
+        "ad_personalization_burst" => %{
           "defaultVariant" => "off",
           "description" => "Triggers high cpu load in the ad service",
           "state" => "ENABLED",
@@ -118,13 +118,13 @@ defmodule FlagdUiWeb.FeatureControllerTest do
 
     assert %{
              "flags" => %{
-               "adFailure" => %{
+               "ad_delivery_retry_sampling" => %{
                  "defaultVariant" => "off",
                  "description" => "Fail ad service",
                  "state" => "ENABLED",
                  "variants" => %{"off" => true, "on" => false}
                },
-               "adHighCpu" => %{
+               "ad_personalization_burst" => %{
                  "defaultVariant" => "off",
                  "description" => "Triggers high cpu load in the ad service",
                  "state" => "ENABLED",

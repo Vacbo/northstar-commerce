@@ -27,4 +27,4 @@ config :phoenix, :plug_init_mode, :runtime
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
 
-config :flagd_ui, storage_file_path: "./test/fixtures/demo.flagd.json"
+config :flagd_ui, storage_file_path: "./test/fixtures/feature-flags.json"

@@ -71,7 +71,7 @@ Action<ResourceBuilder> appResourceBuilder =
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(appResourceBuilder)
     .WithTracing(tracerBuilder => tracerBuilder
-        .AddSource("OpenTelemetry.Demo.Cart")
+        .AddSource("Northstar.Commerce.Cart")
         .AddRedisInstrumentation(
             options => options.SetVerboseDatabaseStatements = true)
         .AddAspNetCoreInstrumentation()
@@ -79,7 +79,7 @@ builder.Services.AddOpenTelemetry()
         .AddHttpClientInstrumentation()
         .AddOtlpExporter())
     .WithMetrics(meterBuilder => meterBuilder
-        .AddMeter("OpenTelemetry.Demo.Cart")
+        .AddMeter("Northstar.Commerce.Cart")
         .AddMeter("OpenFeature")
         .AddProcessInstrumentation()
         .AddRuntimeInstrumentation()
@@ -89,7 +89,7 @@ builder.Services.AddOpenTelemetry()
 builder.Services.AddGrpc();
 builder.Services.AddSingleton<readinessCheck>();
 builder.Services.AddGrpcHealthChecks()
-    .AddCheck<readinessCheck>("oteldemo.CartService");
+    .AddCheck<readinessCheck>("Northstar.Commerce.CartService");
 
 builder.Services.AddSingleton<HealthServiceImpl>();
 
@@ -107,5 +107,4 @@ app.MapGet("/", async context =>
 });
 
 app.Run();
-
 

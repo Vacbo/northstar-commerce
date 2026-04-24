@@ -2,7 +2,7 @@
 * Copyright The OpenTelemetry Authors
 * SPDX-License-Identifier: Apache-2.0
 */
-package oteldemo.problempattern;
+package commerce.adservice.tuning;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,9 +14,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * This class is designed to simulate a high CPU load scenario.
- * It contains methods to start and stop a specified number of worker threads designed to
- * perform CPU-intensive calculations.
+ * This class manages the personalization burst worker pool.
+ * It starts and stops a bounded number of worker threads that perform CPU-intensive
+ * calculations while burst mode is active.
  */
 public class CPULoad {
     private static final Logger logger = LogManager.getLogger(CPULoad.class.getName());
@@ -41,7 +41,7 @@ public class CPULoad {
      * Starts or stops the CPU load generation based on the input parameter.
      * If enabled, it launches worker threads. If disabled, it stops any running threads.
      * 
-     * @param enabled Flag to start (true) or stop (false) the CPU load simulation.
+     * @param enabled Flag to start (true) or stop (false) the burst workers.
      */
     public void execute(Boolean enabled) {
         if (enabled) {
@@ -57,7 +57,7 @@ public class CPULoad {
     }
 
     /**
-     * Creates and starts a specified number of Logarithmizer threads to simulate CPU load.
+     * Creates and starts a specified number of Logarithmizer worker threads.
      * 
      * @param threadCount The number of threads to be started.
      */

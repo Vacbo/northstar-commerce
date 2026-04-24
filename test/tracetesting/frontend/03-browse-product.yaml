@@ -5,7 +5,7 @@ type: Test
 spec:
   id: frontend-browse-product
   name: 'Frontend: Browse products'
-  description: Simulate the user browsing products on Astronomy Shop
+  description: Simulate the user browsing products on Northstar Commerce
   trigger:
     type: http
     httpRequest:

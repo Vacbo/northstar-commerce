@@ -146,7 +146,7 @@ clean-images:
     if [ $$? -ne 0 ]; \
     then \
     	echo; \
-        echo "Failed to removed 1 or more OpenTelemetry Demo images."; \
+        echo "Failed to removed 1 or more Northstar Commerce images."; \
         echo "Check to ensure the Demo is not running by executing: make stop"; \
         false; \
     fi
@@ -188,7 +188,7 @@ check-clean-work-tree:
 start:
 	$(DOCKER_COMPOSE_CMD) $(DOCKER_COMPOSE_ENV) up --force-recreate --remove-orphans --detach
 	@echo ""
-	@echo "OpenTelemetry Demo is running."
+	@echo "Northstar Commerce is running."
 	@echo "Go to http://localhost:8080 for the demo UI."
 	@echo "Go to http://localhost:8080/jaeger/ui for the Jaeger UI."
 	@echo "Go to http://localhost:8080/grafana/ for the Grafana UI."
@@ -200,7 +200,7 @@ start:
 start-minimal:
 	$(DOCKER_COMPOSE_CMD) $(DOCKER_COMPOSE_ENV) -f docker-compose.minimal.yml up --force-recreate --remove-orphans --detach
 	@echo ""
-	@echo "OpenTelemetry Demo in minimal mode is running."
+	@echo "Northstar Commerce in minimal mode is running."
 	@echo "Go to http://localhost:8080 for the demo UI."
 	@echo "Go to http://localhost:8080/jaeger/ui for the Jaeger UI."
 	@echo "Go to http://localhost:8080/grafana/ for the Grafana UI."
@@ -212,7 +212,7 @@ stop:
 	$(DOCKER_COMPOSE_CMD) $(DOCKER_COMPOSE_ENV) down --remove-orphans --volumes
 	$(DOCKER_COMPOSE_CMD) $(DOCKER_COMPOSE_ENV) -f docker-compose-tests.yml down --remove-orphans --volumes
 	@echo ""
-	@echo "OpenTelemetry Demo is stopped."
+	@echo "Northstar Commerce is stopped."
 
 # Use to restart a single service component
 # Example: make restart service=frontend

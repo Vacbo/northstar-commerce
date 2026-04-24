@@ -21,13 +21,13 @@ const Footer = () => {
   return (
     <S.Footer>
       <div>
-        <p>This website is hosted for demo purpose only. It is not an actual shop.</p>
+        <p>Northstar Commerce storefront operations</p>
         <p>
           <span data-cy={CypressFields.SessionId}>session-id: {sessionId}</span>
         </p>
       </div>
       <p>
-        @ {currentYear} OpenTelemetry (<a href="https://github.com/open-telemetry/opentelemetry-demo">Source Code</a>)
+        @ {currentYear} Northstar Commerce
       </p>
       <PlatformFlag />
     </S.Footer>

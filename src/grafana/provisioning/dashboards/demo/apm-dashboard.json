@@ -2079,8 +2079,8 @@
         "allValue": ".*",
         "allowCustomValue": false,
         "current": {
-          "text": "opentelemetry-demo",
-          "value": "opentelemetry-demo"
+          "text": "northstar-commerce",
+          "value": "northstar-commerce"
         },
         "datasource": {
           "type": "prometheus",

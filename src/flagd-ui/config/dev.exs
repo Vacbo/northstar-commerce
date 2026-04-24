@@ -82,4 +82,4 @@ config :swoosh, :api_client, false
 
 config :opentelemetry, traces_exporter: {:otel_exporter_stdout, []}
 
-config :flagd_ui, storage_file_path: "./data/demo.flagd.json"
+config :flagd_ui, storage_file_path: "./data/feature-flags.json"

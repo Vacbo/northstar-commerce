@@ -93,8 +93,8 @@ const Tracer = async () => {
       // The React Native implementation of fetch is simply a polyfill on top of XMLHttpRequest:
       // https://github.com/facebook/react-native/blob/7ccc5934d0f341f9bc8157f18913a7b340f5db2d/packages/react-native/Libraries/Network/fetch.js#L17
       // Because of this when making requests using `fetch` there will an additional span created for the underlying
-      // request made with XMLHttpRequest. Since in this demo calls to /api/ are made using fetch, turn off
-      // instrumentation for that path to avoid the extra spans.
+      // request made with XMLHttpRequest. API calls use fetch, so ignore XMLHttpRequest
+      // spans for that path to avoid duplicate mobile client telemetry.
       new XMLHttpRequestInstrumentation({
         ignoreUrls: [/\/api\/.*/],
       }),

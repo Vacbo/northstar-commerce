@@ -30,7 +30,6 @@ interface IProps {
 export const useCart = () => useContext(Context);
 
 const CartProvider = ({ children }: IProps) => {
-  // TODO simplify react native demo for now by hard-coding the selected currency
   const selectedCurrency = "USD";
   const queryClient = useQueryClient();
   const mutationOptions = useMemo(

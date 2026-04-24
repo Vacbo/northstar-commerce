@@ -1,25 +1,7 @@
 {
   "$schema": "https://flagd.dev/schema/v0/flags.json",
   "flags": {
-    "llmInaccurateResponse": {
-      "defaultVariant": "off",
-      "description": "LLM returns an inaccurate product summary for product ID L9ECAV7KIM",
-      "state": "ENABLED",
-      "variants": {
-        "off": false,
-        "on": true
-      }
-    },
-    "llmRateLimitError": {
-      "defaultVariant": "off",
-      "description": "LLM intermittently returns a rate limit error",
-      "state": "ENABLED",
-      "variants": {
-        "off": false,
-        "on": true
-      }
-    },
-    "productCatalogFailure": {
+    "catalog_fallback_mode": {
       "description": "Fail product catalog service on a specific product",
       "state": "ENABLED",
       "variants": {
@@ -28,7 +10,7 @@
       },
       "defaultVariant": "off"
     },
-    "recommendationCacheFailure": {
+    "recommendation_cache_warmup": {
       "description": "Fail recommendation service cache",
       "state": "ENABLED",
       "variants": {
@@ -37,7 +19,7 @@
       },
       "defaultVariant": "off"
     },
-    "adManualGc": {
+    "ad_memory_reclamation": {
       "description": "Triggers full manual garbage collections in the ad service",
       "state": "ENABLED",
       "variants": {
@@ -46,7 +28,7 @@
       },
       "defaultVariant": "off"
     },
-    "adHighCpu": {
+    "ad_personalization_burst": {
       "description": "Triggers high cpu load in the ad service",
       "state": "ENABLED",
       "variants": {
@@ -55,7 +37,7 @@
       },
       "defaultVariant": "off"
     },
-    "adFailure": {
+    "ad_delivery_retry_sampling": {
       "description": "Fail ad service",
       "state": "ENABLED",
       "variants": {
@@ -64,7 +46,7 @@
       },
       "defaultVariant": "off"
     },
-    "kafkaQueueProblems": {
+    "order_event_burst_replay": {
       "description": "Overloads Kafka queue while simultaneously introducing a consumer side delay leading to a lag spike",
       "state": "ENABLED",
       "variants": {
@@ -73,7 +55,7 @@
       },
       "defaultVariant": "off"
     },
-    "cartFailure": {
+    "cart_storage_fallback": {
       "description": "Fail cart service",
       "state": "ENABLED",
       "variants": {
@@ -82,7 +64,7 @@
       },
       "defaultVariant": "off"
     },
-    "paymentFailure": {
+    "payment_provider_decline_rate": {
       "description": "Fail payment service charge requests n%",
       "state": "ENABLED",
       "variants": {
@@ -96,7 +78,7 @@
       },
       "defaultVariant": "off"
     },
-    "paymentUnreachable": {
+    "payment_routing_override": {
       "description": "Payment service is unavailable",
       "state": "ENABLED",
       "variants": {
@@ -105,7 +87,7 @@
       },
       "defaultVariant": "off"
     },
-    "loadGeneratorFloodHomepage": {
+    "homepage_traffic_burst": {
       "description": "Flood the frontend with a large amount of requests.",
       "state": "ENABLED",
       "variants": {
@@ -114,7 +96,7 @@
       },
       "defaultVariant": "off"
     },
-    "imageSlowLoad": {
+    "product_image_delay_ms": {
       "description": "slow loading images in the frontend",
       "state": "ENABLED",
       "variants": {
@@ -124,7 +106,7 @@
       },
       "defaultVariant": "off"
     },
-    "failedReadinessProbe": {
+    "cart_startup_probe_override": {
       "description": "readiness probe failure for cart service",
       "state": "ENABLED",
       "variants": {
@@ -132,9 +114,8 @@
         "off": false
       },
       "defaultVariant": "off"
-
     },
-    "emailMemoryLeak": {
+    "email_template_expansion_factor": {
       "description": "Memory leak in the email service.",
       "state": "ENABLED",
       "variants": {

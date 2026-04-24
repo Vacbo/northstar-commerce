@@ -5,7 +5,7 @@ type: Test
 spec:
   id: frontend-see-adds
   name: 'Frontend: See Ads'
-  description: Simulate the user seeing a ads on Astronomy Shop
+  description: Simulate the user seeing a ads on Northstar Commerce
   trigger:
     type: http
     httpRequest:
