@@ -679,7 +679,7 @@ services:
     command: [
       "start",
       "--uri",
-      "file:./etc/flagd/demo.flagd.json"
+      "file:./etc/flagd/feature-flags.json"
     ]
     ports:
       - "${FLAGD_PORT}"

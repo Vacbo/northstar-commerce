@@ -80,7 +80,7 @@ public class CartService : Oteldemo.CartService.CartServiceBase
 
         try
         {
-            if (await _featureFlagHelper.GetBooleanValueAsync("cartFailure", false))
+            if (await _featureFlagHelper.GetBooleanValueAsync("cart_storage_fallback", false))
             {
                 await _badCartStore.EmptyCartAsync(request.UserId);
             }

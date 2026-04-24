@@ -64,7 +64,7 @@ def send_email(data)
   tracer.in_span("send_email") do |span|
     # Check if memory leak flag is enabled
     client = OpenFeature::SDK.build_client
-    memory_leak_multiplier = client.fetch_number_value(flag_key: "emailMemoryLeak", default_value: 0)
+    memory_leak_multiplier = client.fetch_number_value(flag_key: "email_template_expansion_factor", default_value: 0)
 
     # To speed up the memory leak we create a long email body
     confirmation_content = erb(:confirmation, locals: { order: data.order })

@@ -60,8 +60,8 @@ def generate_response(product_id):
     """Generate a response by providing the pre-generated summary for the specified product"""
     product_review_summary = None
 
-    llm_inaccurate_response = check_feature_flag("llmInaccurateResponse")
-    app.logger.info(f"llmInaccurateResponse feature flag: {llm_inaccurate_response}")
+    llm_inaccurate_response = check_feature_flag("llm_summary_variant")
+    app.logger.info(f"llm_summary_variant feature flag: {llm_inaccurate_response}")
     if llm_inaccurate_response and product_id == "L9ECAV7KIM":
         app.logger.info(f"Returning an inaccurate response for product_id: {product_id}")
         product_review_summary = inaccurate_product_review_summaries.get(product_id)

@@ -23,9 +23,9 @@ an LLM, and are stored in a JSON file to avoid calling an actual LLM each time.
 
 The service supports two feature flags:
 
-* `llmInaccurateResponse`: when this feature flag is enabled the LLM service
+* `llm_summary_variant`: when this feature flag is enabled the LLM service
 returns an inaccurate product summary for product ID L9ECAV7KIM
-* `llmRateLimitError`: when this feature flag is enabled, the LLM service
+* `llm_provider_throttle_mode`: when this feature flag is enabled, the LLM service
 intermittently returns a RateLimitError with HTTP status code 429
 
 Note that the LLM service itself is not instrumented with OpenTelemetry.

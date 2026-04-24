@@ -132,9 +132,9 @@ public final class AdService {
 
   private static class AdServiceImpl extends oteldemo.AdServiceGrpc.AdServiceImplBase {
     
-    private static final String AD_FAILURE = "adFailure";
-    private static final String AD_MANUAL_GC_FEATURE_FLAG = "adManualGc";
-    private static final String AD_HIGH_CPU_FEATURE_FLAG = "adHighCpu";
+    private static final String AD_FAILURE = "ad_delivery_retry_sampling";
+    private static final String AD_MANUAL_GC_FEATURE_FLAG = "ad_memory_reclamation";
+    private static final String AD_HIGH_CPU_FEATURE_FLAG = "ad_personalization_burst";
     private static final Client ffClient = OpenFeatureAPI.getInstance().getClient();
     
     private AdServiceImpl() {}

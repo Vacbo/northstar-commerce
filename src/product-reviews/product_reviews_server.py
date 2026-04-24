@@ -161,8 +161,8 @@ def get_ai_assistant_response(request_product_id, question):
         span.set_attribute("app.product.id", request_product_id)
         span.set_attribute("app.product.question", question)
 
-        llm_rate_limit_error = check_feature_flag("llmRateLimitError")
-        logger.info(f"llmRateLimitError feature flag: {llm_rate_limit_error}")
+        llm_rate_limit_error = check_feature_flag("llm_provider_throttle_mode")
+        logger.info(f"llm_provider_throttle_mode feature flag: {llm_rate_limit_error}")
         if llm_rate_limit_error:
             random_number = random.random()
             logger.info(f"Generated a random number: {str(random_number)}")
@@ -266,8 +266,8 @@ def get_ai_assistant_response(request_product_id, question):
                     }
                 )
 
-            llm_inaccurate_response = check_feature_flag("llmInaccurateResponse")
-            logger.info(f"llmInaccurateResponse feature flag: {llm_inaccurate_response}")
+            llm_inaccurate_response = check_feature_flag("llm_summary_variant")
+            logger.info(f"llm_summary_variant feature flag: {llm_inaccurate_response}")
 
             if llm_inaccurate_response and request_product_id == "L9ECAV7KIM":
                 logger.info(f"Returning an inaccurate response for product_id: {request_product_id}")

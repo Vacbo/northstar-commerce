@@ -29,7 +29,7 @@ const ProductCard = ({
     },
   },
 }: IProps) => {
-  const imageSlowLoad = useNumberFlagValue('imageSlowLoad', 0);
+  const product_image_delay_ms = useNumberFlagValue('product_image_delay_ms', 0);
   const [imageSrc, setImageSrc] = useState<string>('');
 
   useEffect(() => {
@@ -41,7 +41,7 @@ const ProductCard = ({
     let objectUrl: string | null = null;
     let cancelled = false;
     const headers = new Headers();
-    headers.append('x-envoy-fault-delay-request', imageSlowLoad.toString());
+    headers.append('x-envoy-fault-delay-request', product_image_delay_ms.toString());
     headers.append('Cache-Control', 'no-cache');
     const requestInit = {
       method: 'GET',
@@ -66,7 +66,7 @@ const ProductCard = ({
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [imageSlowLoad, picture]);
+  }, [product_image_delay_ms, picture]);
 
   return (
     <S.Link href={`/product/${id}`}>
