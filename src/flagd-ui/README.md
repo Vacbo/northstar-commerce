@@ -7,8 +7,8 @@ This is a [Phoenix](https://www.phoenixframework.org/) project.
 
 ## Running the application
 
-The application can be run with the rest of the demo using the documented
-[docker compose or make commands](https://opentelemetry.io/docs/demo/#running-the-demo).
+The application can be run with the rest of the Northstar Commerce stack using
+the Docker Compose or Make targets from the repository root.
 
 ## Local development
 
@@ -76,8 +76,8 @@ $ curl --header "Content-Type: application/json" \
   http://localhost:8080/feature/api/write
 ```
 
-In addition to the `/read` and `/write` endpoint, we also offer these endpoint
-to stay compatible with the old version of Flagd-ui:
+In addition to the `/read` and `/write` endpoint, these file-oriented endpoints
+are available for operational tooling:
 
 * `/read-file` (`GET`)
 * `/write-to-file` (`POST`)
