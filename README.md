@@ -54,3 +54,4 @@ Keep changes focused. This repository is used as an operations target, so every 
 ## License
 
 Northstar Commerce includes components derived from Apache-2.0 licensed upstream work. See `LICENSE` for license terms.
+
