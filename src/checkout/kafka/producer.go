@@ -5,6 +5,7 @@ package kafka
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/IBM/sarama"
 )
@@ -35,6 +36,13 @@ func CreateKafkaProducer(brokers []string, logger *slog.Logger) (sarama.AsyncPro
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.Return.Errors = true
+
+	// Hardened connection settings to avoid broken pipe / EOF errors on transient broker failures
+	saramaConfig.Net.DialTimeout = 10 * time.Second
+	saramaConfig.Net.ReadTimeout = 30 * time.Second
+	saramaConfig.Metadata.Retry.Max = 3
+	saramaConfig.Metadata.Retry.Backoff = 2 * time.Second
+	saramaConfig.Net.MaxOpenRequests = 1
 
 	// Sarama has an issue in a single broker kafka if the kafka broker is restarted.
 	// This setting is to prevent that issue from manifesting itself, but may swallow failed messages.
