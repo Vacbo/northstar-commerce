@@ -1,10 +1,12 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package kafka
 
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/IBM/sarama"
 )
@@ -44,6 +46,14 @@ func CreateKafkaProducer(brokers []string, logger *slog.Logger) (sarama.AsyncPro
 
 	// So we can know the partition and offset of messages.
 	saramaConfig.Producer.Return.Successes = true
+
+	// Harden TCP connectivity to Kafka broker.
+	saramaConfig.Net.DialTimeout = 10 * time.Second
+	saramaConfig.Net.ReadTimeout = 30 * time.Second
+	saramaConfig.Net.MaxOpenRequests = 1
+
+	saramaConfig.Metadata.Retry.Max = 3
+	saramaConfig.Metadata.Retry.Backoff = 2 * time.Second
 
 	producer, err := sarama.NewAsyncProducer(brokers, saramaConfig)
 	if err != nil {
