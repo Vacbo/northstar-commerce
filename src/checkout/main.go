@@ -43,7 +43,7 @@ import (
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -290,6 +290,19 @@ func (cs *checkout) Watch(req *healthpb.HealthCheckRequest, ws healthpb.Health_W
 	return status.Errorf(codes.Unimplemented, "health check via Watch not implemented")
 }
 
+func getEnvDuration(key string, defaultDuration time.Duration) time.Duration {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultDuration
+	}
+	d, err := time.ParseDuration(val)
+	if err != nil {
+		logger.Warn(fmt.Sprintf("invalid duration %q for %s, using default %v", val, key, defaultDuration))
+		return defaultDuration
+	}
+	return d
+}
+
 func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (*pb.PlaceOrderResponse, error) {
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(
@@ -330,8 +343,14 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 		total = money.Must(money.Sum(total, multPrice))
 	}
 
-	txID, err := cs.chargeCard(ctx, total, req.CreditCard)
+	chargeTimeout := getEnvDuration("CHECKOUT_CHARGE_TIMEOUT", 5*time.Second)
+	chargeCtx, chargeCancel := context.WithTimeout(ctx, chargeTimeout)
+	defer chargeCancel()
+	txID, err := cs.chargeCard(chargeCtx, total, req.CreditCard)
 	if err != nil {
+		if status.Code(err) == codes.DeadlineExceeded || ctx.Err() == context.DeadlineExceeded {
+			return nil, status.Errorf(codes.DeadlineExceeded, "charge card timed out: %+v", err)
+		}
 		return nil, status.Errorf(codes.Internal, "failed to charge card: %+v", err)
 	}
 
@@ -343,14 +362,29 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 		slog.String("transaction_id", txID),
 	)
 
-	shippingTrackingID, err := cs.shipOrder(ctx, req.Address, prep.cartItems)
+	shipTimeout := getEnvDuration("CHECKOUT_SHIP_TIMEOUT", 5*time.Second)
+	shipCtx, shipCancel := context.WithTimeout(ctx, shipTimeout)
+	defer shipCancel()
+	shippingTrackingID, err := cs.shipOrder(shipCtx, req.Address, prep.cartItems)
 	if err != nil {
+		if status.Code(err) == codes.DeadlineExceeded || ctx.Err() == context.DeadlineExceeded {
+			return nil, status.Errorf(codes.DeadlineExceeded, "shipping timed out: %+v", err)
+		}
 		return nil, status.Errorf(codes.Unavailable, "shipping error: %+v", err)
 	}
 	shippingTrackingAttribute := attribute.String("app.shipping.tracking.id", shippingTrackingID)
 	span.AddEvent("shipped", trace.WithAttributes(shippingTrackingAttribute))
 
-	_ = cs.emptyUserCart(ctx, req.UserId)
+	cartTimeout := getEnvDuration("CHECKOUT_CART_TIMEOUT", 2*time.Second)
+	cartCtx, cartCancel := context.WithTimeout(ctx, cartTimeout)
+	defer cartCancel()
+	if err := cs.emptyUserCart(cartCtx, req.UserId); err != nil {
+		if status.Code(err) == codes.DeadlineExceeded || ctx.Err() == context.DeadlineExceeded {
+			logger.WarnContext(ctx, "empty cart timed out, continuing", "error", err)
+		} else {
+			logger.WarnContext(ctx, "failed to empty cart, continuing", "error", err)
+		}
+	}
 
 	orderResult := &pb.OrderResult{
 		OrderId:            orderID.String(),
@@ -380,8 +414,15 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 		slog.String("app.shipping.tracking.id", shippingTrackingID),
 	)
 
-	if err := cs.sendOrderConfirmation(ctx, req.Email, orderResult); err != nil {
-		logger.Warn(fmt.Sprintf("failed to send order confirmation: %+v", err))
+	emailTimeout := getEnvDuration("CHECKOUT_EMAIL_TIMEOUT", 2*time.Second)
+	emailCtx, emailCancel := context.WithTimeout(ctx, emailTimeout)
+	defer emailCancel()
+	if err := cs.sendOrderConfirmation(emailCtx, req.Email, orderResult); err != nil {
+		if status.Code(err) == codes.DeadlineExceeded || ctx.Err() == context.DeadlineExceeded {
+			logger.WarnContext(ctx, "send order confirmation timed out, continuing", "error", err)
+		} else {
+			logger.WarnContext(ctx, "failed to send order confirmation, continuing", "error", err)
+		}
 	} else {
 		logger.Info("order confirmation email sent")
 	}
