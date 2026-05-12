@@ -5,6 +5,8 @@ package kafka
 import (
 	"fmt"
 	"log/slog"
+	"net"
+	"time"
 
 	"github.com/IBM/sarama"
 )
@@ -44,6 +46,24 @@ func CreateKafkaProducer(brokers []string, logger *slog.Logger) (sarama.AsyncPro
 
 	// So we can know the partition and offset of messages.
 	saramaConfig.Producer.Return.Successes = true
+
+	// Configure connection and write timeouts to prevent indefinite hangs.
+	saramaConfig.Net.DialTimeout = 5 * time.Second
+	saramaConfig.Net.WriteTimeout = 5 * time.Second
+
+	// Configure producer retries with backoff for transient broker failures.
+	saramaConfig.Producer.Retry.Max = 3
+	saramaConfig.Producer.Retry.Backoff = 500 * time.Millisecond
+
+	// Pre-connection health check: attempt to dial each broker with a short timeout.
+	for _, broker := range brokers {
+		conn, err := net.DialTimeout("tcp", broker, 5*time.Second)
+		if err != nil {
+			logger.Warn(fmt.Sprintf("Kafka broker %s is unreachable: %v", broker, err))
+		} else {
+			conn.Close()
+		}
+	}
 
 	producer, err := sarama.NewAsyncProducer(brokers, saramaConfig)
 	if err != nil {

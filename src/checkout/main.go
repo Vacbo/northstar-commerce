@@ -43,7 +43,7 @@ import (
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -235,15 +235,36 @@ func main() {
 	svc.kafkaBrokerSvcAddr = os.Getenv("KAFKA_ADDR")
 
 	if svc.kafkaBrokerSvcAddr != "" {
-		svc.KafkaProducerClient, err = kafka.CreateKafkaProducer([]string{svc.kafkaBrokerSvcAddr}, logger)
-		if err != nil {
-			logger.Error(err.Error())
+		// Retry producer creation with exponential backoff for up to 30 seconds
+		maxAttempts := 6
+		backoff := 1 * time.Second
+		for i := 0; i < maxAttempts; i++ {
+			svc.KafkaProducerClient, err = kafka.CreateKafkaProducer([]string{svc.kafkaBrokerSvcAddr}, logger)
+			if err == nil {
+				break
+			}
+			if i < maxAttempts-1 {
+				logger.Warn(fmt.Sprintf("Failed to create Kafka producer (attempt %d/%d): %v, retrying in %v", i+1, maxAttempts, err, backoff))
+				time.Sleep(backoff)
+				backoff *= 2
+				if backoff > 5*time.Second {
+					backoff = 5 * time.Second
+				}
+			}
 		}
+		if err != nil {
+			logger.Error(fmt.Sprintf("Could not create Kafka producer after %d attempts: %v", maxAttempts, err))
+			os.Exit(1)
+		}
+		logger.Info(fmt.Sprintf("Kafka producer connected to broker %s", svc.kafkaBrokerSvcAddr))
 	}
 
 	logger.Info(fmt.Sprintf("service config: %+v", svc))
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
+	lc := net.ListenConfig{
+		KeepAlive: 10 * time.Second,
+	}
+	lis, err := lc.Listen(context.Background(), "tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
 		logger.Error(err.Error())
 	}
