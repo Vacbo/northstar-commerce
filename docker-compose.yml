@@ -444,6 +444,7 @@ services:
         condition: service_started
       flagd:
         condition: service_started
+    command: sh -c 'dbus-daemon --system && locust -f locustfile.py --host="http://frontend-proxy:8080" --users="${LOCUST_BROWSER_USERS:-10}" --spawn-rate="${LOCUST_BROWSER_SPAWN_RATE:-10}" --run-time="${LOCUST_RUN_TIME:-5m}"'
     logging: *logging
 
   # Payment service

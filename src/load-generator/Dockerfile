@@ -16,6 +16,10 @@ FROM base
 WORKDIR /usr/src/app/
 COPY --from=builder /reqs /usr/local
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+RUN apt-get -qq update \
+    && apt-get install -y --no-install-recommends dbus dbus-x11 \
+    && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /run/dbus
 RUN playwright install --with-deps chromium
 COPY ./src/load-generator/locustfile.py .
 COPY ./src/load-generator/people.json .
