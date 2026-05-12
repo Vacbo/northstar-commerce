@@ -12,6 +12,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.Logger
 import oteldemo.Demo.*
+import java.time.Duration
 import java.time.Duration.ofMillis
 import java.util.*
 import kotlin.system.exitProcess
@@ -31,6 +32,11 @@ private val logger: Logger = LogManager.getLogger(groupID)
 fun main() {
     val options = FlagdOptions.builder()
     .withGlobalTelemetry(true)
+    .withKeepAliveTime(Duration.ofSeconds(30))
+    .withKeepAliveTimeout(Duration.ofSeconds(10))
+    .withKeepAliveWithoutCalls(true)
+    .withDeadline(Duration.ofSeconds(30))
+    .withRetryEnabled(true)
     .build()
     val flagdProvider = FlagdProvider(options)
     OpenFeatureAPI.getInstance().setProvider(flagdProvider)
@@ -72,7 +78,7 @@ fun main() {
 /**
 * Retrieves the status of a feature flag from the Feature Flag service.
 *
-* @param ff The name of the feature flag to retrieve.
+* @param ff the name of the feature flag to retrieve.
 * @return `true` if the feature flag is enabled, `false` otherwise or in case of errors.
 */
 fun getFeatureFlagValue(ff: String): Int {
