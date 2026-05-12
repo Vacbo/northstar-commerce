@@ -77,7 +77,13 @@ def get_product_list(request_product_ids):
         # Feature flag scenario - Cache Leak
         if check_feature_flag("recommendation_cache_warmup"):
             span.set_attribute("app.recommendation.cache_enabled", True)
-            if random.random() < 0.5 or first_run:
+            # Defense-in-depth: if the cache is already large, skip the buggy path
+            if len(cached_ids) > 1000:
+                span.set_attribute("app.cache_hit", False)
+                logger.info("get_product_list: cache too large, falling back to normal path")
+                cat_response = product_catalog_stub.ListProducts(demo_pb2.Empty())
+                product_ids = [x.id for x in cat_response.products]
+            elif random.random() < 0.5 or first_run:
                 first_run = False
                 span.set_attribute("app.cache_hit", False)
                 logger.info("get_product_list: cache miss")
@@ -85,6 +91,8 @@ def get_product_list(request_product_ids):
                 response_ids = [x.id for x in cat_response.products]
                 cached_ids = cached_ids + response_ids
                 cached_ids = cached_ids + cached_ids[:len(cached_ids) // 4]
+                # Cap the cache to prevent unbounded growth
+                cached_ids = cached_ids[:1000]
                 product_ids = cached_ids
             else:
                 span.set_attribute("app.cache_hit", True)

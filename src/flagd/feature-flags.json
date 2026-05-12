@@ -12,7 +12,7 @@
     },
     "recommendation_cache_warmup": {
       "description": "Fail recommendation service cache",
-      "state": "ENABLED",
+      "state": "DISABLED",
       "variants": {
         "on": true,
         "off": false
