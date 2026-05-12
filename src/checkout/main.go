@@ -43,7 +43,7 @@ import (
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -151,6 +151,15 @@ type checkout struct {
 	httpClient              *http.Client
 }
 
+// placeOrderSem is a buffered channel used as a semaphore to bound concurrent
+// downstream side-effect operations in PlaceOrder (Kafka publish, shipping,
+// email). It is initialized in main() with a configurable capacity.
+var placeOrderSem chan struct{}
+
+// semTimeout is the per-operation context timeout for acquiring the semaphore
+// and executing the side-effect. Read from env var in main().
+var semTimeout time.Duration
+
 func main() {
 	var port string
 	mustMapEnv(&port, "CHECKOUT_PORT")
@@ -241,6 +250,30 @@ func main() {
 		}
 	}
 
+	// Initialize semaphore and timeout for downstream side-effect bounding
+	semSizeStr := os.Getenv("PLACEORDER_SEMAPHORE_SIZE")
+	semSize := 100 // default
+	if semSizeStr != "" {
+		if parsed, err := strconv.Atoi(semSizeStr); err == nil && parsed > 0 {
+			semSize = parsed
+		} else {
+			logger.Warn(fmt.Sprintf("invalid PLACEORDER_SEMAPHORE_SIZE %q, using default %d", semSizeStr, semSize))
+		}
+	}
+	placeOrderSem = make(chan struct{}, semSize)
+	logger.Info(fmt.Sprintf("PlaceOrder semaphore initialized with size %d", semSize))
+
+	timeoutStr := os.Getenv("PLACEORDER_SIDEEFFECT_TIMEOUT")
+	semTimeout = 5 * time.Second // default
+	if timeoutStr != "" {
+		if parsed, err := time.ParseDuration(timeoutStr); err == nil && parsed > 0 {
+			semTimeout = parsed
+		} else {
+			logger.Warn(fmt.Sprintf("invalid PLACEORDER_SIDEEFFECT_TIMEOUT %q, using default %v", timeoutStr, semTimeout))
+		}
+	}
+	logger.Info(fmt.Sprintf("PlaceOrder side-effect timeout set to %v", semTimeout))
+
 	logger.Info(fmt.Sprintf("service config: %+v", svc))
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
@@ -288,6 +321,37 @@ func (cs *checkout) Check(ctx context.Context, req *healthpb.HealthCheckRequest)
 
 func (cs *checkout) Watch(req *healthpb.HealthCheckRequest, ws healthpb.Health_WatchServer) error {
 	return status.Errorf(codes.Unimplemented, "health check via Watch not implemented")
+}
+
+// acquireSemWithTimeout tries to acquire the semaphore within the configured
+// timeout. Returns a child context with the per-operation timeout applied.
+// On failure it records a metric and returns an error that should be returned
+// as an Unavailable gRPC status.
+func acquireSemWithTimeout(ctx context.Context, opName string) (context.Context, context.CancelFunc, error) {
+	// Create a context with the per-operation timeout.
+	opCtx, opCancel := context.WithTimeout(ctx, semTimeout)
+
+	select {
+	case placeOrderSem <- struct{}{}:
+		// Acquired. Return the bounded context so the caller can use it.
+		return opCtx, opCancel, nil
+	case <-opCtx.Done():
+		opCancel()
+		// Log and record failure
+		logger.Warn(fmt.Sprintf("semaphore acquisition failed for %s: %v", opName, opCtx.Err()))
+		// Record a counter metric
+		meter := otel.Meter("checkout")
+		counter, _ := meter.Int64Counter("checkout.placeorder.semaphore.failures",
+			attribute.String("operation", opName),
+		)
+		counter.Add(ctx, 1)
+		return nil, nil, status.Errorf(codes.Unavailable, "downstream %s unavailable: %v", opName, opCtx.Err())
+	}
+}
+
+// releaseSem releases a slot in the semaphore.
+func releaseSem() {
+	<-placeOrderSem
 }
 
 func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (*pb.PlaceOrderResponse, error) {
@@ -343,7 +407,16 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 		slog.String("transaction_id", txID),
 	)
 
-	shippingTrackingID, err := cs.shipOrder(ctx, req.Address, prep.cartItems)
+	// Bounded downstream call: shipOrder
+	shippingTrackingID, err := func() (string, error) {
+		opCtx, opCancel, semErr := acquireSemWithTimeout(ctx, "shipOrder")
+		if semErr != nil {
+			return "", semErr
+		}
+		defer opCancel()
+		defer releaseSem()
+		return cs.shipOrder(opCtx, req.Address, prep.cartItems)
+	}()
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "shipping error: %+v", err)
 	}
@@ -380,7 +453,16 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 		slog.String("app.shipping.tracking.id", shippingTrackingID),
 	)
 
-	if err := cs.sendOrderConfirmation(ctx, req.Email, orderResult); err != nil {
+	// Bounded downstream call: sendOrderConfirmation
+	if err := func() error {
+		opCtx, opCancel, semErr := acquireSemWithTimeout(ctx, "sendOrderConfirmation")
+		if semErr != nil {
+			return semErr
+		}
+		defer opCancel()
+		defer releaseSem()
+		return cs.sendOrderConfirmation(opCtx, req.Email, orderResult)
+	}(); err != nil {
 		logger.Warn(fmt.Sprintf("failed to send order confirmation: %+v", err))
 	} else {
 		logger.Info("order confirmation email sent")
@@ -389,7 +471,19 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 	// send to kafka only if kafka broker address is set
 	if cs.kafkaBrokerSvcAddr != "" {
 		logger.Info("sending to postProcessor")
-		cs.sendToPostProcessor(ctx, orderResult)
+		// Bounded downstream call: sendToPostProcessor (Kafka)
+		if err := func() error {
+			opCtx, opCancel, semErr := acquireSemWithTimeout(ctx, "sendToPostProcessor")
+			if semErr != nil {
+				return semErr
+			}
+			defer opCancel()
+			defer releaseSem()
+			cs.sendToPostProcessor(opCtx, orderResult)
+			return nil
+		}(); err != nil {
+			logger.Warn(fmt.Sprintf("failed to send to postProcessor: %+v", err))
+		}
 	}
 
 	resp := &pb.PlaceOrderResponse{Order: orderResult}
