@@ -26,7 +26,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 	otelhooks "github.com/open-feature/go-sdk-contrib/hooks/open-telemetry/pkg"
-	flagd "github.com/open-feature/go-sdk-contrib/providers/flagd/pkg"
+	flaqd "github.com/open-feature/go-sdk-contrib/providers/flagd/pkg"
 	"github.com/open-feature/go-sdk/openfeature"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -256,8 +256,6 @@ func main() {
 	healthcheck := health.NewServer()
 	healthpb.RegisterHealthServer(srv, healthcheck)
 	logger.Info(fmt.Sprintf("starting to listen on tcp: %q", lis.Addr().String()))
-	err = srv.Serve(lis)
-	logger.Error(err.Error())
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
@@ -271,6 +269,11 @@ func main() {
 	<-ctx.Done()
 
 	srv.GracefulStop()
+	if svc.KafkaProducerClient != nil {
+		if err := svc.KafkaProducerClient.Close(); err != nil {
+			logger.Error(fmt.Sprintf("Error closing Kafka producer: %v", err))
+		}
+	}
 	logger.Info("Checkout gRPC server stopped")
 }
 
@@ -389,7 +392,8 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 	// send to kafka only if kafka broker address is set
 	if cs.kafkaBrokerSvcAddr != "" {
 		logger.Info("sending to postProcessor")
-		cs.sendToPostProcessor(ctx, orderResult)
+		// Fire-and-forget: dispatch async without blocking request path
+		go cs.sendToPostProcessor(ctx, orderResult)
 	}
 
 	resp := &pb.PlaceOrderResponse{Order: orderResult}
@@ -628,6 +632,9 @@ func (cs *checkout) shipOrder(ctx context.Context, address *pb.Address, items []
 }
 
 func (cs *checkout) sendToPostProcessor(ctx context.Context, result *pb.OrderResult) {
+	span := trace.SpanFromContext(ctx)
+	childCtx := trace.ContextWithSpan(context.Background(), span)
+
 	message, err := proto.Marshal(result)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to marshal message to protobuf: %+v", err))
@@ -640,53 +647,34 @@ func (cs *checkout) sendToPostProcessor(ctx context.Context, result *pb.OrderRes
 	}
 
 	// Inject tracing info into message
-	span := createProducerSpan(ctx, &msg)
-	defer span.End()
+	producerSpan := createProducerSpan(childCtx, &msg)
+	defer producerSpan.End()
 
-	// Send message and handle response
-	startTime := time.Now()
+	// Fire-and-forget: non-blocking send with bounded timeout
 	select {
 	case cs.KafkaProducerClient.Input() <- &msg:
-		select {
-		case successMsg := <-cs.KafkaProducerClient.Successes():
-			span.SetAttributes(
-				attribute.Bool("messaging.kafka.producer.success", true),
-				attribute.Int("messaging.kafka.producer.duration_ms", int(time.Since(startTime).Milliseconds())),
-				attribute.KeyValue(semconv.MessagingKafkaMessageOffset(int(successMsg.Offset))),
-			)
-			logger.Info(fmt.Sprintf("Successful to write message. offset: %v, duration: %v", successMsg.Offset, time.Since(startTime)))
-		case errMsg := <-cs.KafkaProducerClient.Errors():
-			span.SetAttributes(
-				attribute.Bool("messaging.kafka.producer.success", false),
-				attribute.Int("messaging.kafka.producer.duration_ms", int(time.Since(startTime).Milliseconds())),
-			)
-			span.SetStatus(otelcodes.Error, errMsg.Err.Error())
-			logger.Error(fmt.Sprintf("Failed to write message: %v", errMsg.Err))
-		case <-ctx.Done():
-			span.SetAttributes(
-				attribute.Bool("messaging.kafka.producer.success", false),
-				attribute.Int("messaging.kafka.producer.duration_ms", int(time.Since(startTime).Milliseconds())),
-			)
-			span.SetStatus(otelcodes.Error, "Context cancelled: "+ctx.Err().Error())
-			logger.Warn(fmt.Sprintf("Context canceled before success message received: %v", ctx.Err()))
-		}
-	case <-ctx.Done():
-		span.SetAttributes(
-			attribute.Bool("messaging.kafka.producer.success", false),
-			attribute.Int("messaging.kafka.producer.duration_ms", int(time.Since(startTime).Milliseconds())),
+		producerSpan.SetAttributes(
+			attribute.Bool("messaging.kafka.producer.queued", true),
 		)
-		span.SetStatus(otelcodes.Error, "Failed to send: "+ctx.Err().Error())
-		logger.Error(fmt.Sprintf("Failed to send message to Kafka within context deadline: %v", ctx.Err()))
+		logger.Info("Message queued for async delivery to Kafka")
+	case <-time.After(500 * time.Millisecond):
+		producerSpan.SetAttributes(
+			attribute.Bool("messaging.kafka.producer.queued", false),
+		)
+		producerSpan.SetStatus(otelcodes.Error, "Producer input channel full")
+		logger.Warn("Failed to queue message to Kafka: producer channel full")
 		return
 	}
 
-	ffValue := cs.getIntFeatureFlag(ctx, "order_event_burst_replay")
+	ffValue := cs.getIntFeatureFlag(childCtx, "order_event_burst_replay")
 	if ffValue > 0 {
 		logger.Info("Warning: FeatureFlag 'order_event_burst_replay' is activated, overloading queue now.")
 		for i := 0; i < ffValue; i++ {
 			go func(i int) {
-				cs.KafkaProducerClient.Input() <- &msg
-				_ = <-cs.KafkaProducerClient.Successes()
+				select {
+				case cs.KafkaProducerClient.Input() <- &msg:
+				case <-time.After(500 * time.Millisecond):
+				}
 			}(i)
 		}
 		logger.Info(fmt.Sprintf("Done with #%d messages for overload simulation.", ffValue))
