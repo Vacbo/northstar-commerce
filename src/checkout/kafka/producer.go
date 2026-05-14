@@ -5,6 +5,7 @@ package kafka
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/IBM/sarama"
 )
@@ -36,14 +37,16 @@ func CreateKafkaProducer(brokers []string, logger *slog.Logger) (sarama.AsyncPro
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.Return.Errors = true
 
-	// Sarama has an issue in a single broker kafka if the kafka broker is restarted.
-	// This setting is to prevent that issue from manifesting itself, but may swallow failed messages.
-	saramaConfig.Producer.RequiredAcks = sarama.NoResponse
-
 	saramaConfig.Version = ProtocolVersion
 
-	// So we can know the partition and offset of messages.
-	saramaConfig.Producer.Return.Successes = true
+	// Harden producer with timeout and backpressure settings
+	saramaConfig.Producer.Timeout = 2 * time.Second
+	saramaConfig.Producer.Retry.Max = 2
+	saramaConfig.Producer.Retry.Backoff = 100 * time.Millisecond
+	saramaConfig.ChannelBufferSize = 256
+	saramaConfig.Metadata.Timeout = 3 * time.Second
+	saramaConfig.Metadata.Retry.Max = 2
+	saramaConfig.Metadata.Retry.Backoff = 250 * time.Millisecond
 
 	producer, err := sarama.NewAsyncProducer(brokers, saramaConfig)
 	if err != nil {
