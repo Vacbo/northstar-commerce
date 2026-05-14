@@ -5,6 +5,7 @@ package kafka
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/IBM/sarama"
 )
@@ -36,9 +37,18 @@ func CreateKafkaProducer(brokers []string, logger *slog.Logger) (sarama.AsyncPro
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.Return.Errors = true
 
+	// Bound delivery timeout to 2 seconds so broker unavailability does not block indefinitely
+	saramaConfig.Producer.Timeout = 2 * time.Second
+
+	// Set channel buffer sizes to provide backpressure when broker is slow
+	saramaConfig.ChannelBufferSize = 256
+
 	// Sarama has an issue in a single broker kafka if the kafka broker is restarted.
 	// This setting is to prevent that issue from manifesting itself, but may swallow failed messages.
 	saramaConfig.Producer.RequiredAcks = sarama.NoResponse
+
+	// Set metadata refresh frequency to detect broker availability changes
+	saramaConfig.Metadata.RefreshFrequency = 10 * time.Second
 
 	saramaConfig.Version = ProtocolVersion
 
