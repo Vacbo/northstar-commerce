@@ -8,6 +8,7 @@ import os
 import random
 import uuid
 import logging
+import time
 
 from locust import HttpUser, task, between
 from locust_plugins.users.playwright import PlaywrightUser, pw, PageWithRetry, event
@@ -247,7 +248,7 @@ if browser_traffic_enabled:
                 try:
                     page.on("console", lambda msg: print(msg.text))
                     await page.route("**/*", add_baggage_header)
-                    await page.goto("/cart", wait_until="domcontentloaded")
+                    await self._goto_with_retry(page, "/cart")
                     await page.select_option('[name="currency_code"]', "CHF")
                     await page.wait_for_timeout(2000)  # giving the browser time to export the traces
                     logging.info("Currency changed to CHF")
@@ -262,7 +263,7 @@ if browser_traffic_enabled:
                 try:
                     page.on("console", lambda msg: print(msg.text))
                     await page.route("**/*", add_baggage_header)
-                    await page.goto("/", wait_until="domcontentloaded")
+                    await self._goto_with_retry(page, "/")
                     # Wait for Roof Binoculars image to load (awaiting successful XHR response in less than 15 seconds)
                     await page.wait_for_event(
                         "response",
@@ -277,6 +278,31 @@ if browser_traffic_enabled:
                     logging.info("Product added to cart successfully")
                 except Exception as e:
                     logging.error(f"Error in add to cart task: {str(e)}")
+
+        async def _goto_with_retry(self, page: PageWithRetry, url: str, max_retries: int = 3, total_timeout: int = 90):
+            """Navigate to URL with exponential backoff retry logic for transient failures."""
+            delays = [5, 10, 20]  # exponential backoff delays in seconds
+            start_time = time.time()
+            
+            for attempt in range(max_retries):
+                elapsed = time.time() - start_time
+                if elapsed >= total_timeout:
+                    logging.error(f"Total timeout of {total_timeout}s exceeded for navigation to {url}")
+                    raise Exception(f"Navigation timeout after {elapsed:.1f}s")
+                
+                try:
+                    logging.info(f"Attempting navigation to {url} (attempt {attempt + 1}/{max_retries})")
+                    await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    logging.info(f"Successfully navigated to {url}")
+                    return
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        delay = delays[attempt]
+                        logging.warning(f"Navigation to {url} failed (attempt {attempt + 1}): {str(e)}. Retrying in {delay}s...")
+                        await page.wait_for_timeout(delay * 1000)
+                    else:
+                        logging.error(f"Navigation to {url} failed after {max_retries} attempts: {str(e)}")
+                        raise
 
 
 async def add_baggage_header(route: Route, request: Request):

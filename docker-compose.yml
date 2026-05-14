@@ -338,7 +338,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 65M
+          memory: 128M
     restart: unless-stopped
     ports:
       - "${ENVOY_PORT}:${ENVOY_PORT}"
@@ -368,6 +368,12 @@ services:
       - FLAGD_UI_PORT
       - TELEMETRY_DOCS_HOST
       - TELEMETRY_DOCS_PORT
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${ENVOY_ADMIN_PORT}/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       frontend:
         condition: service_started
