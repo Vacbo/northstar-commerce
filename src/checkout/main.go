@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -132,23 +133,69 @@ func initLoggerProvider() *sdklog.LoggerProvider {
 	return loggerProvider
 }
 
+type sideEffectWorkerPool struct {
+	sem chan struct{}
+	wg sync.WaitGroup
+	ctx context.Context
+	cancel context.CancelFunc
+	metricsCounter *sync.Map
+}
+
+func newSideEffectWorkerPool(maxConcurrency int) *sideEffectWorkerPool {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &sideEffectWorkerPool{
+		sem: make(chan struct{}, maxConcurrency),
+		ctx: ctx,
+		cancel: cancel,
+		metricsCounter: &sync.Map{},
+	}
+}
+
+func (p *sideEffectWorkerPool) submit(task func()) {
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		select {
+		case p.sem <- struct{}{}:
+			defer func() { <-p.sem }()
+			task()
+		case <-p.ctx.Done():
+			logger.Warn("Side effect task cancelled due to shutdown")
+		}
+	}()
+}
+
+func (p *sideEffectWorkerPool) shutdown() {
+	p.cancel()
+	p.wg.Wait()
+}
+
+func (p *sideEffectWorkerPool) incrementMetric(sideEffectType, status string) {
+	key := fmt.Sprintf("%s_%s", sideEffectType, status)
+	val, _ := p.metricsCounter.LoadOrStore(key, new(int64))
+	counter := val.(*int64)
+	atomic.AddInt64(counter, 1)
+}
+
 type checkout struct {
 	productCatalogSvcAddr string
-	cartSvcAddr           string
-	currencySvcAddr       string
-	shippingSvcAddr       string
-	emailSvcAddr          string
-	paymentSvcAddr        string
-	kafkaBrokerSvcAddr    string
+	cartSvcAddr string
+	currencySvcAddr string
+	shippingSvcAddr string
+	emailSvcAddr string
+	paymentSvcAddr string
+	kafkaBrokerSvcAddr string
 	pb.UnimplementedCheckoutServiceServer
-	KafkaProducerClient     sarama.AsyncProducer
-	shippingSvcClient       pb.ShippingServiceClient
+	KafkaProducerClient sarama.AsyncProducer
+	shippingSvcClient pb.ShippingServiceClient
 	productCatalogSvcClient pb.ProductCatalogServiceClient
-	cartSvcClient           pb.CartServiceClient
-	currencySvcClient       pb.CurrencyServiceClient
-	emailSvcClient          pb.EmailServiceClient
-	paymentSvcClient        pb.PaymentServiceClient
-	httpClient              *http.Client
+	cartSvcClient pb.CartServiceClient
+	currencySvcClient pb.CurrencyServiceClient
+	emailSvcClient pb.EmailServiceClient
+	paymentSvcClient pb.PaymentServiceClient
+	httpClient *http.Client
+	sideEffectPool *sideEffectWorkerPool
+	sideEffectTimeout time.Duration
 }
 
 func main() {
@@ -200,6 +247,22 @@ func main() {
 	svc := new(checkout)
 	svc.httpClient = &http.Client{
 		Transport: otelhttp.NewTransport(http.DefaultTransport),
+	}
+
+	maxConcurrency := 10
+	if envVal := os.Getenv("SIDE_EFFECT_MAX_CONCURRENCY"); envVal != "" {
+		if val, err := strconv.Atoi(envVal); err == nil && val > 0 {
+			maxConcurrency = val
+		}
+	}
+	svc.sideEffectPool = newSideEffectWorkerPool(maxConcurrency)
+	defer svc.sideEffectPool.shutdown()
+
+	svc.sideEffectTimeout = 5 * time.Second
+	if envVal := os.Getenv("SIDE_EFFECT_TIMEOUT_SEC"); envVal != "" {
+		if val, err := strconv.Atoi(envVal); err == nil && val > 0 {
+			svc.sideEffectTimeout = time.Duration(val) * time.Second
+		}
 	}
 
 	mustMapEnv(&svc.shippingSvcAddr, "SHIPPING_ADDR")
@@ -256,8 +319,6 @@ func main() {
 	healthcheck := health.NewServer()
 	healthpb.RegisterHealthServer(srv, healthcheck)
 	logger.Info(fmt.Sprintf("starting to listen on tcp: %q", lis.Addr().String()))
-	err = srv.Serve(lis)
-	logger.Error(err.Error())
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
@@ -350,14 +411,12 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 	shippingTrackingAttribute := attribute.String("app.shipping.tracking.id", shippingTrackingID)
 	span.AddEvent("shipped", trace.WithAttributes(shippingTrackingAttribute))
 
-	_ = cs.emptyUserCart(ctx, req.UserId)
-
 	orderResult := &pb.OrderResult{
-		OrderId:            orderID.String(),
+		OrderId: orderID.String(),
 		ShippingTrackingId: shippingTrackingID,
-		ShippingCost:       prep.shippingCostLocalized,
-		ShippingAddress:    req.Address,
-		Items:              prep.orderItems,
+		ShippingCost: prep.shippingCostLocalized,
+		ShippingAddress: req.Address,
+		Items: prep.orderItems,
 	}
 
 	shippingCostFloat, _ := strconv.ParseFloat(fmt.Sprintf("%d.%02d", prep.shippingCostLocalized.GetUnits(), prep.shippingCostLocalized.GetNanos()/1000000000), 64)
@@ -380,25 +439,53 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 		slog.String("app.shipping.tracking.id", shippingTrackingID),
 	)
 
-	if err := cs.sendOrderConfirmation(ctx, req.Email, orderResult); err != nil {
-		logger.Warn(fmt.Sprintf("failed to send order confirmation: %+v", err))
-	} else {
-		logger.Info("order confirmation email sent")
-	}
+	// Launch background side effects with timeout and bounded concurrency
+	cs.sideEffectPool.submit(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error(fmt.Sprintf("Panic in side effect goroutine: %v", r))
+			}
+		}()
 
-	// send to kafka only if kafka broker address is set
-	if cs.kafkaBrokerSvcAddr != "" {
-		logger.Info("sending to postProcessor")
-		cs.sendToPostProcessor(ctx, orderResult)
-	}
+		sideEffectCtx, cancel := context.WithTimeout(context.Background(), cs.sideEffectTimeout)
+		defer cancel()
+
+		// Send order confirmation email
+		if err := cs.sendOrderConfirmation(sideEffectCtx, req.Email, orderResult); err != nil {
+			logger.Warn(fmt.Sprintf("failed to send order confirmation: %+v", err))
+			cs.sideEffectPool.incrementMetric("email", "failure")
+		} else {
+			logger.Info("order confirmation email sent")
+			cs.sideEffectPool.incrementMetric("email", "success")
+		}
+
+		// Send to Kafka post-processor
+		if cs.kafkaBrokerSvcAddr != "" {
+			logger.Info("sending to postProcessor")
+			if err := cs.sendToPostProcessorWithContext(sideEffectCtx, orderResult); err != nil {
+				logger.Warn(fmt.Sprintf("failed to send to post-processor: %+v", err))
+				cs.sideEffectPool.incrementMetric("kafka", "failure")
+			} else {
+				cs.sideEffectPool.incrementMetric("kafka", "success")
+			}
+		}
+
+		// Empty user cart
+		if err := cs.emptyUserCart(sideEffectCtx, req.UserId); err != nil {
+			logger.Warn(fmt.Sprintf("failed to empty user cart: %+v", err))
+			cs.sideEffectPool.incrementMetric("cart", "failure")
+		} else {
+			cs.sideEffectPool.incrementMetric("cart", "success")
+		}
+	})
 
 	resp := &pb.PlaceOrderResponse{Order: orderResult}
 	return resp, nil
 }
 
 type orderPrep struct {
-	orderItems            []*pb.OrderItem
-	cartItems             []*pb.CartItem
+	orderItems []*pb.OrderItem
+	cartItems []*pb.CartItem
 	shippingCostLocalized *pb.Money
 }
 
@@ -458,7 +545,7 @@ func mustCreateClient(svcAddr string) *grpc.ClientConn {
 func (cs *checkout) quoteShipping(ctx context.Context, address *pb.Address, items []*pb.CartItem) (*pb.Money, error) {
 	quotePayload, err := json.Marshal(map[string]interface{}{
 		"address": address,
-		"items":   items,
+		"items": items,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal ship order request: %+v", err)
@@ -533,7 +620,7 @@ func (cs *checkout) prepOrderItems(ctx context.Context, items []*pb.CartItem, us
 
 func (cs *checkout) convertCurrency(ctx context.Context, from *pb.Money, toCurrency string) (*pb.Money, error) {
 	result, err := cs.currencySvcClient.Convert(ctx, &pb.CurrencyConversionRequest{
-		From:   from,
+		From: from,
 		ToCode: toCurrency})
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert currency: %+v", err)
@@ -550,7 +637,7 @@ func (cs *checkout) chargeCard(ctx context.Context, amount *pb.Money, paymentInf
 	}
 
 	paymentResp, err := paymentService.Charge(ctx, &pb.ChargeRequest{
-		Amount:     amount,
+		Amount: amount,
 		CreditCard: paymentInfo})
 	if err != nil {
 		return "", fmt.Errorf("could not charge the card: %+v", err)
@@ -588,7 +675,7 @@ func (cs *checkout) sendOrderConfirmation(ctx context.Context, email string, ord
 func (cs *checkout) shipOrder(ctx context.Context, address *pb.Address, items []*pb.CartItem) (string, error) {
 	shipPayload, err := json.Marshal(map[string]interface{}{
 		"address": address,
-		"items":   items,
+		"items": items,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal ship order request: %+v", err)
@@ -627,11 +714,10 @@ func (cs *checkout) shipOrder(ctx context.Context, address *pb.Address, items []
 	return shipResp.TrackingID, nil
 }
 
-func (cs *checkout) sendToPostProcessor(ctx context.Context, result *pb.OrderResult) {
+func (cs *checkout) sendToPostProcessorWithContext(ctx context.Context, result *pb.OrderResult) error {
 	message, err := proto.Marshal(result)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to marshal message to protobuf: %+v", err))
-		return
+		return fmt.Errorf("failed to marshal message to protobuf: %+v", err)
 	}
 
 	msg := sarama.ProducerMessage{
@@ -643,54 +729,17 @@ func (cs *checkout) sendToPostProcessor(ctx context.Context, result *pb.OrderRes
 	span := createProducerSpan(ctx, &msg)
 	defer span.End()
 
-	// Send message and handle response
-	startTime := time.Now()
-	select {
-	case cs.KafkaProducerClient.Input() <- &msg:
-		select {
-		case successMsg := <-cs.KafkaProducerClient.Successes():
-			span.SetAttributes(
-				attribute.Bool("messaging.kafka.producer.success", true),
-				attribute.Int("messaging.kafka.producer.duration_ms", int(time.Since(startTime).Milliseconds())),
-				attribute.KeyValue(semconv.MessagingKafkaMessageOffset(int(successMsg.Offset))),
-			)
-			logger.Info(fmt.Sprintf("Successful to write message. offset: %v, duration: %v", successMsg.Offset, time.Since(startTime)))
-		case errMsg := <-cs.KafkaProducerClient.Errors():
-			span.SetAttributes(
-				attribute.Bool("messaging.kafka.producer.success", false),
-				attribute.Int("messaging.kafka.producer.duration_ms", int(time.Since(startTime).Milliseconds())),
-			)
-			span.SetStatus(otelcodes.Error, errMsg.Err.Error())
-			logger.Error(fmt.Sprintf("Failed to write message: %v", errMsg.Err))
-		case <-ctx.Done():
-			span.SetAttributes(
-				attribute.Bool("messaging.kafka.producer.success", false),
-				attribute.Int("messaging.kafka.producer.duration_ms", int(time.Since(startTime).Milliseconds())),
-			)
-			span.SetStatus(otelcodes.Error, "Context cancelled: "+ctx.Err().Error())
-			logger.Warn(fmt.Sprintf("Context canceled before success message received: %v", ctx.Err()))
-		}
-	case <-ctx.Done():
-		span.SetAttributes(
-			attribute.Bool("messaging.kafka.producer.success", false),
-			attribute.Int("messaging.kafka.producer.duration_ms", int(time.Since(startTime).Milliseconds())),
-		)
-		span.SetStatus(otelcodes.Error, "Failed to send: "+ctx.Err().Error())
-		logger.Error(fmt.Sprintf("Failed to send message to Kafka within context deadline: %v", ctx.Err()))
-		return
+	// Use the new non-blocking SendWithTimeout from kafka package
+	if err := kafka.SendWithTimeout(ctx, cs.KafkaProducerClient, &msg, logger); err != nil {
+		span.SetStatus(otelcodes.Error, err.Error())
+		return err
 	}
 
-	ffValue := cs.getIntFeatureFlag(ctx, "order_event_burst_replay")
-	if ffValue > 0 {
-		logger.Info("Warning: FeatureFlag 'order_event_burst_replay' is activated, overloading queue now.")
-		for i := 0; i < ffValue; i++ {
-			go func(i int) {
-				cs.KafkaProducerClient.Input() <- &msg
-				_ = <-cs.KafkaProducerClient.Successes()
-			}(i)
-		}
-		logger.Info(fmt.Sprintf("Done with #%d messages for overload simulation.", ffValue))
-	}
+	span.SetAttributes(
+		attribute.Bool("messaging.kafka.producer.success", true),
+	)
+	logger.Info("Successfully sent message to Kafka")
+	return nil
 }
 
 func createProducerSpan(ctx context.Context, msg *sarama.ProducerMessage) trace.Span {

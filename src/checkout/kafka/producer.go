@@ -3,8 +3,10 @@
 package kafka
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/IBM/sarama"
 )
@@ -58,4 +60,46 @@ func CreateKafkaProducer(brokers []string, logger *slog.Logger) (sarama.AsyncPro
 		}
 	}()
 	return producer, nil
+}
+
+// SendWithTimeout sends a message to Kafka with a timeout guarantee.
+// This function wraps the blocking select on AsyncProducer channels
+// in a goroutine to ensure non-blocking behavior within the timeout.
+func SendWithTimeout(ctx context.Context, producer sarama.AsyncProducer, msg *sarama.ProducerMessage, logger *slog.Logger) error {
+	resultChan := make(chan error, 1)
+
+	go func() {
+		defer close(resultChan)
+		select {
+		case producer.Input() <- msg:
+			// Message queued, now wait for result
+			select {
+			case <-producer.Successes():
+				resultChan <- nil
+			case errMsg := <-producer.Errors():
+				if errMsg != nil {
+					resultChan <- fmt.Errorf("kafka producer error: %v", errMsg.Err)
+				} else {
+					resultChan <- fmt.Errorf("kafka producer unknown error")
+				}
+			}
+		case <-ctx.Done():
+			resultChan <- fmt.Errorf("failed to send message to Kafka within timeout: %v", ctx.Err())
+		}
+	}()
+
+	// Use time.After to guarantee non-blocking timeout
+	timeout := 5 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout = time.Until(deadline)
+	}
+
+	select {
+	case err := <-resultChan:
+		return err
+	case <-time.After(timeout):
+		return fmt.Errorf("kafka send operation timed out after %v", timeout)
+	case <-ctx.Done():
+		return fmt.Errorf("context cancelled: %v", ctx.Err())
+	}
 }
